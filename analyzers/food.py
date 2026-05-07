@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 
 import httpx
@@ -13,6 +14,71 @@ class AnalysisResult:
     points: int
     comment: str
     source: str
+
+
+FOOD_SIGNAL_KEYWORDS = [
+    "朝",
+    "昼",
+    "夜",
+    "晩",
+    "食事",
+    "ごはん",
+    "御飯",
+    "飯",
+    "おにぎり",
+    "弁当",
+    "間食",
+    "おやつ",
+    "カロリー",
+    "kcal",
+    "cal",
+    "たんぱく",
+    "タンパク",
+    "プロテイン",
+    "摂取",
+    "栄養",
+    "糖質",
+    "脂質",
+    "減量",
+    "増量",
+    "meal",
+    "breakfast",
+    "lunch",
+    "dinner",
+    "snack",
+    "protein",
+]
+FOOD_INGREDIENT_HINTS = [
+    "鶏むね",
+    "魚",
+    "卵",
+    "野菜",
+    "サラダ",
+    "豆腐",
+    "納豆",
+    "玄米",
+    "オートミール",
+    "揚げ",
+    "ラーメン",
+    "菓子",
+    "ジュース",
+]
+
+
+def is_food_related(content: str) -> bool:
+    raw = content.strip()
+    if len(raw) < 3:
+        return False
+    text = raw.lower()
+    if any(k in text for k in FOOD_SIGNAL_KEYWORDS):
+        return True
+    if any(k in text for k in FOOD_INGREDIENT_HINTS):
+        return True
+    if re.search(r"\d+\s*(kcal|カロリー)", text):
+        return True
+    if re.search(r"(?:カロリー|kcal)\s*[:：]?\s*\d+", text):
+        return True
+    return False
 
 
 def _fallback_food(content: str) -> AnalysisResult:
@@ -38,6 +104,7 @@ async def analyze_food(content: str) -> AnalysisResult:
 
     base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
     model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
     prompt = (
         "次の食事報告を健康観点で1-10点評価し、短い改善コメントを返してください。"
         "JSONのみ返す: {\"score\": int, \"comment\": string}。"
@@ -63,8 +130,9 @@ async def analyze_food(content: str) -> AnalysisResult:
             data = resp.json()
             text = data["choices"][0]["message"]["content"]
             parsed = json.loads(text)
-            score = max(1, min(10, int(parsed["score"])))
+            score = int(parsed["score"])
             comment = str(parsed["comment"])[:180]
+            score = max(1, min(10, score))
             return AnalysisResult(score=score, points=score * 9, comment=comment, source="llm")
     except Exception:
         return _fallback_food(content)

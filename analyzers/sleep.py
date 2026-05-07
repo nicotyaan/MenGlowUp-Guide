@@ -25,6 +25,10 @@ def _parse_sleep_hours(content: str) -> float | None:
     return None
 
 
+def is_sleep_report(content: str) -> bool:
+    return _parse_sleep_hours(content) is not None
+
+
 def analyze_sleep(content: str) -> AnalysisResult:
     hours = _parse_sleep_hours(content)
     if hours is None:

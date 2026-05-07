@@ -6,8 +6,8 @@ from datetime import datetime, timedelta, timezone
 import discord
 from discord.ext import commands
 
-from analyzers.food import analyze_food
-from analyzers.sleep import analyze_sleep
+from analyzers.food import analyze_food, is_food_related
+from analyzers.sleep import analyze_sleep, is_sleep_report
 from analyzers.typing_score import analyze_typing
 from analyzers.workout import analyze_workout, is_workout_related
 from cogs.roles import RoleTier, sync_member_role
@@ -75,6 +75,10 @@ class ReportsCog(commands.Cog):
         if not category:
             return
         if category == "workout" and not is_workout_related(message.content):
+            return
+        if category == "food" and not is_food_related(message.content):
+            return
+        if category == "sleep" and not is_sleep_report(message.content):
             return
 
         user_id = message.author.id
